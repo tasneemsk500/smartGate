@@ -1,0 +1,130 @@
+Code:
+#include <Keypad.h>
+#include <Servo.h>
+
+// === Keypad Setup ===
+const byte ROWS = 4;
+const byte COLS = 4;
+char keys[ROWS][COLS] = {
+  {'1','2','3','A'},
+  {'4','5','6','B'},
+  {'7','8','9','C'},
+  {'*','0','#','D'}
+};
+
+byte rowPins[ROWS] = {9, 8, 7, 6};    // Connect to the row pinouts of the keypad
+byte colPins[COLS] = {5, 4, 3, 2};    // Connect to the column pinouts of the keypad
+
+Keypad keypad = Keypad(makeKeymap(keys), rowPins, colPins, ROWS, COLS);
+
+// === Servo Setup ===
+Servo gateServo;
+int servoPin = 10;
+int openPos = 0;    // Adjust based on how your gate should open (0 deg in my project)
+int closedPos = 90;   // Adjust based on your servo's closed position (90 deg in my project)
+
+// === Ultrasonic Sensor Setup ===
+const int trigPin = 11;
+const int echoPin = 12;
+const int detectDistance = 30;  // Distance in cm to detect car
+
+// === LEDs ===
+const int greenLED = 13; // Correct PIN
+const int redLED = A0;   // Incorrect PIN
+
+// === PIN Logic ===
+String inputCode = "";
+String correctCode = "*12345#"; // The Pin number that I have set up. You can provide whatever number you wish. In my project when the user presses "#" key, the code checks whether the password input is correct
+bool gateOpen = false;
+
+void setup() {
+  Serial.begin(9600);
+
+  gateServo.attach(servoPin);
+  gateServo.write(closedPos);  // Start with gate closed
+
+  pinMode(trigPin, OUTPUT);
+  pinMode(echoPin, INPUT);
+
+  pinMode(greenLED, OUTPUT);
+  pinMode(redLED, OUTPUT);
+
+  digitalWrite(greenLED, LOW);
+  digitalWrite(redLED, LOW);
+}
+
+void loop() {
+  // === Keypad Input for Entry ===
+  char key = keypad.getKey();
+  if (key) {
+    inputCode += key;
+    Serial.print("Pressed: "); Serial.println(key);
+
+    if (key == '#') { //The code checks the input password once the "#" key is pressed
+      if (inputCode == correctCode) {
+        digitalWrite(greenLED, HIGH);
+        digitalWrite(redLED, LOW);
+        openGate();
+        delay(3000);
+        digitalWrite(greenLED, LOW);
+      } else {
+        digitalWrite(redLED, HIGH);
+        digitalWrite(greenLED, LOW);
+        Serial.println("Incorrect PIN");
+        delay(1000);
+        digitalWrite(redLED, LOW);
+      }
+      inputCode = "";
+    }
+
+    if (inputCode.length() > 7) {
+      inputCode = "";  // Reset if too long
+      digitalWrite(redLED, HIGH);
+      digitalWrite(greenLED, LOW);
+      Serial.println("Incorrect PIN");
+      delay(1000);
+      digitalWrite(redLED, LOW);
+    }
+  }
+
+  // === Automatic Exit + Safety ===
+  if (gateOpen && isCarPresent()) {
+    Serial.println("Car present, keeping gate open...");
+    delay(1000);  // Wait while car is under the gate
+  } else if (gateOpen) {
+    closeGate();
+  }
+
+  // === Exit Trigger ===
+  if (!gateOpen && isCarPresent()) {
+    Serial.println("Car approaching from inside. Opening gate.");
+    openGate();
+    delay(3000);
+  }
+
+  delay(100); // Reduce CPU usage
+}
+
+bool isCarPresent() {
+  digitalWrite(trigPin, LOW); delayMicroseconds(2);
+  digitalWrite(trigPin, HIGH); delayMicroseconds(10);
+  digitalWrite(trigPin, LOW);
+
+  long duration = pulseIn(echoPin, HIGH);
+  int distance = duration * 0.05;  // The distance of the Ultrasonic sensor is reduced so that the sensor does not signal to open the gate because of the wall.
+  Serial.print("Distance: "); Serial.println(distance);
+
+  return (distance > 0 && distance < detectDistance);
+}
+
+void openGate() {
+  Serial.println("Gate opening...");
+  gateServo.write(openPos);
+  gateOpen = true;
+}
+
+void closeGate() {
+  Serial.println("Gate closing...");
+  gateServo.write(closedPos);
+  gateOpen = false;
+}
