@@ -6,3 +6,6 @@ In this project, I build a prototype of a smart gate that mimics the real-world 
 
 The user enters the correct code to allow the gate to lift off and enters inside. 
 When the user wishes to leave, the ultrasound sensor from inside will allow it to open the gate if it senses the presence of a car trying to exit the complex
+
+Here's the Youtube video to demonstrate this:
+https://youtu.be/kQ1YFaoUCBs?si=yqqX-ubyhoq7pTTf
